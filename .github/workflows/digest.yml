@@ -1,0 +1,38 @@
+name: daily-digest
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-digest
+  cancel-in-progress: false
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # yamlgraph from PyPI + the nodes' direct deps only (FR-819 R-2)
+      - run: pip install yamlgraph feedparser beautifulsoup4 httpx python-dotenv
+      - run: python run_digest.py --db digest.db --output digests
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - run: |
+          git config user.name "digest-bot"
+          git config user.email "actions@github.com"
+          git add digests/ digest.db README.md
+          if git diff --cached --quiet; then
+            echo "digest: no-op — no new stories, nothing to commit"
+          else
+            git commit -m "digest $(date -u +%F)"
+            git pull --rebase origin main
+            git push
+          fi
