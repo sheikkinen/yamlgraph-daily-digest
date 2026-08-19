@@ -9,6 +9,7 @@ state store, and the publication channel.
 ## Latest digests
 
 <!-- digest-index -->
+- [2026-08-19](digests/2026-08-19.md)
 - [2026-08-18](digests/2026-08-18.md)
 <!-- /digest-index -->
 
