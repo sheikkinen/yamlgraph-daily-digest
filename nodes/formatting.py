@@ -13,9 +13,51 @@ recipients see rendered links instead of raw `[title](url)`.
 import logging
 from html import escape
 
+from pydantic import BaseModel, ValidationError
+
 from yamlgraph.contrib import to_serializable
 
 logger = logging.getLogger(__name__)
+
+
+class InvalidRankedStoriesError(RuntimeError):
+    """The ranker ran and produced nothing usable.
+
+    Distinct from a quiet day: `no_articles` means the ranker was never
+    invoked. This means it was, and its output cannot be trusted — so the
+    run fails loudly instead of committing an empty bulletin.
+    """
+
+
+class RankedStory(BaseModel):
+    """The shape `prompts/rank_stories.yaml` asks for but cannot enforce.
+
+    `stories: list[Any]` constrains the array, not its elements, so this
+    is where the contract is actually applied.
+    """
+
+    title: str
+    url: str
+    summary: str = ""
+    reason: str = ""
+    relevance: float | None = None
+
+
+def _validate(raw: list) -> list[RankedStory]:
+    """Keep conforming stories; log every drop with index and type."""
+    kept: list[RankedStory] = []
+    for index, item in enumerate(raw):
+        try:
+            kept.append(RankedStory.model_validate(item))
+        except ValidationError as exc:
+            reason = exc.errors()[0]["msg"] if exc.errors() else "invalid"
+            logger.warning(
+                "drop ranked story %d: %s (%s)",
+                index,
+                type(item).__name__,
+                reason[:80],
+            )
+    return kept
 
 
 def format_markdown(state: dict) -> dict:
@@ -25,17 +67,29 @@ def format_markdown(state: dict) -> dict:
 
     if hasattr(ranked_stories, "stories"):
         ranked_stories = ranked_stories.stories
+    # A dict payload means the ranker answered, even if its list is empty.
+    ranker_answered = isinstance(ranked_stories, dict)
     ranked_stories = to_serializable(ranked_stories) if ranked_stories else []
     if isinstance(ranked_stories, dict):
         ranked_stories = ranked_stories.get("stories", [])
 
-    if not ranked_stories:
+    if not ranked_stories and not ranker_answered:
         logger.info("📝 No stories to format — nothing to report today")
         return {
             "digest_markdown": "",
             "digest_html": "",
             "digest_status": "no_articles",
         }
+
+    observed = sorted({type(item).__name__ for item in ranked_stories})
+    stories = _validate(ranked_stories)
+    if not stories:
+        raise InvalidRankedStoriesError(
+            f"digest_status=invalid: ranker returned {len(ranked_stories)} "
+            f"item(s) of type(s) {observed or ['none']}, none conforming to "
+            f"RankedStory. Refusing to emit an empty bulletin as success."
+        )
+    ranked_stories = [s.model_dump() for s in stories]
 
     lines = [f"# Daily Tech Digest — {today}", ""]
     html = [
