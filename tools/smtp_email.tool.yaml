@@ -1,0 +1,28 @@
+# Tool manifest (FR-768) — vendored SMTP email tool.
+#
+# ADAPTED, not byte-identical: upstream declares
+# `module: examples.shared.smtp_email`, which cannot resolve here because
+# `examples*` is excluded from the yamlgraph wheel. Only the runtime
+# reference changes; `smtp_email.py` itself is byte-identical upstream.
+# See smtp_email.VENDORED.md.
+#
+# Contract: send_email(subject, text, html=None, to=None, cc=None,
+#                      attachments=None) -> {"sent": True, "to": [...]}
+#   subject:     header; CR/LF refused (header injection)
+#   text:        plain-text body; always present, even when html is given
+#   html:        optional HTML alternative -> multipart/alternative
+#   to / cc:     single address or comma-separated list; falls back to SMTP_TO
+#   attachments: filesystem paths; a missing path raises before connecting
+# Config: SMTP_SERVER, SMTP_PORT, SMTP_USER, SMTP_PASSWORD required;
+#   SMTP_FROM and SMTP_TO optional. Every missing key is reported in one
+#   error before a socket opens, and credentials are read at call time.
+#   Port 465 selects implicit TLS; any other port selects STARTTLS.
+# All failures raise SmtpSendError — never a success-shaped return, and
+#   never with the raw smtplib exception chained (it can echo the
+#   credential back). The tool_call node owns the error envelope.
+name: send_email
+description: "Send an email over SMTP (text, optional HTML alternative, optional attachments)"
+runtime:
+  type: python
+  path: smtp_email.py
+  function: send_email
