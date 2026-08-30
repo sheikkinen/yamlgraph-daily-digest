@@ -1,0 +1,16 @@
+# Tool manifest (FR-768) — binds the `collect` slot to arXiv cs.AI.
+#
+# Contract: collect(config) -> {"raw_articles": [{title, url, source, timestamp}]}
+#
+# The second binding is the test of the slot. Running:
+#
+#   yamlgraph graph run graph.yaml --tool collect=sources/arxiv.tool.yaml
+#
+# produces a preprint digest through the same filtering, analysis,
+# ranking, rendering, and delivery — with graph.yaml unchanged.
+name: arxiv
+description: "Collect recent cs.AI preprints from the arXiv Atom feed"
+runtime:
+  type: python
+  path: arxiv.py
+  function: collect

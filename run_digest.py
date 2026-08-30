@@ -3,10 +3,15 @@
 
 Usage:
     python run_digest.py --db digest.db --output digests
+    python run_digest.py --collect sources/arxiv.tool.yaml --topics "AI"
 
 Archiving and delivery are graph nodes (FR-903), not runner logic: the
 ordering — gate, then archive, then send — is an edge in graph.yaml, so a
 second digest inherits it instead of copying this script.
+
+Collection is a tool slot (FR-904), so the source is chosen here rather
+than named in the graph. A digest over a different subject area is a
+--collect binding and a --topics list.
 
 There is no dry mode. Running it IS the intent.
 """
@@ -32,20 +37,38 @@ def main():
     parser.add_argument("--topics", default="AI,Python,LangGraph")
     parser.add_argument("--db", default="digest.db")
     parser.add_argument("--output", default="digests")
+    parser.add_argument(
+        "--collect",
+        default="sources/hn_rss.tool.yaml",
+        help="Tool manifest binding the graph's `collect` slot (FR-904)",
+    )
+    parser.add_argument(
+        "--max-age-hours",
+        type=int,
+        default=24,
+        help="Recency window; widen it for sources that publish on a "
+        "slower cadence than hourly news (arXiv announces weekdays only)",
+    )
     args = parser.parse_args()
 
     os.environ["DATABASE_PATH"] = args.db
 
-    from yamlgraph.compile.graph_loader import load_and_compile
+    from yamlgraph.compile.graph_loader import compile_graph, load_graph_config
 
-    graph = load_and_compile(str(REPO_DIR / "graph.yaml"))
-    compiled = graph.compile()
+    # Slot binding paths resolve against CWD; anchor them to the repo so
+    # the runner works from anywhere, as the scheduled job needs.
+    config = load_graph_config(
+        REPO_DIR / "graph.yaml",
+        tool_bindings={"collect": str(REPO_DIR / args.collect)},
+    )
+    compiled = compile_graph(config).compile()
 
     result = compiled.invoke(
         {
             "topics": [t.strip() for t in args.topics.split(",")],
             "today": date.today().isoformat(),
             "output_dir": args.output,
+            "max_age_hours": args.max_age_hours,
         }
     )
 

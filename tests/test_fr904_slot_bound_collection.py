@@ -59,12 +59,16 @@ class TestBothBindingsSatisfyTheContract:
         ["sources/hn_rss.tool.yaml", "sources/arxiv.tool.yaml"],
     )
     def test_binding_resolves(self, manifest_path):
+        """Resolution replaces the slot with a translated FR-768 tool, so
+        execution reuses the existing python runtime rather than a new
+        engine."""
         resolved = resolve_tool_slots(
             _graph()["tools"], {"collect": manifest_path}, REPO_DIR
-        )
+        )["collect"]
 
-        assert "slot" not in resolved["collect"]
-        assert Path(resolved["collect"]["manifest"]).exists()
+        assert "slot" not in resolved
+        assert resolved["type"] == "python"
+        assert resolved["function"] == "collect"
 
     @pytest.mark.parametrize(
         "manifest_path",
@@ -124,7 +128,7 @@ class TestCollectorABI:
         assert {r["source"] for r in result["raw_articles"]} == {"arXiv"}
 
     def test_timestamps_are_parseable_by_the_downstream_filter(self):
-        """filter_recent parses this string for the 24h cutoff; an
+        """filter_recent parses this string for the cutoff; an
         unparseable timestamp degrades silently to 'not recent'."""
         from datetime import datetime
 
@@ -136,14 +140,57 @@ class TestCollectorABI:
             datetime.fromisoformat(record["timestamp"])
 
 
-class TestConstantsMovedWithTheirImplementation:
-    def test_rss_feeds_left_the_shared_node_module(self):
-        """Swapping sources should swap files. A feed list in a shared
-        module is a source the graph still owns."""
-        import nodes.sources as shared
+class TestCadenceBelongsToTheSource:
+    """arXiv announces on weekdays only. Measured on a Saturday, its
+    freshest cs.AI submission was 3 days old, so the pipeline's 24h
+    cutoff emptied the digest entirely — a second binding that yields
+    nothing five days a week proves nothing about the slot."""
 
-        assert not hasattr(shared, "RSS_FEEDS")
-        assert not hasattr(shared, "HN_API_BASE")
+    def _articles(self, age_hours: int) -> list[dict]:
+        from datetime import datetime, timedelta
+
+        stamp = (datetime.now() - timedelta(hours=age_hours)).isoformat()
+        return [
+            {
+                "title": "A preprint",
+                "url": f"https://arxiv.org/abs/{age_hours}",
+                "source": "arXiv",
+                "timestamp": stamp,
+            }
+        ]
+
+    def test_default_window_is_still_a_day(self, tmp_path, monkeypatch):
+        from nodes.filters import filter_recent
+
+        monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "d.db"))
+
+        assert filter_recent({"raw_articles": self._articles(72)})[
+            "filtered_articles"
+        ] == []
+
+    def test_a_slower_source_can_widen_the_window(self, tmp_path, monkeypatch):
+        from nodes.filters import filter_recent
+
+        monkeypatch.setenv("DATABASE_PATH", str(tmp_path / "d.db"))
+
+        result = filter_recent(
+            {"raw_articles": self._articles(72), "max_age_hours": 96}
+        )
+
+        assert len(result["filtered_articles"]) == 1
+
+
+class TestConstantsMovedWithTheirImplementation:
+    def test_the_shared_source_module_is_retired(self):
+        """Swapping sources should swap files. A feed list in a shared
+        module is a source the graph still owns — and a hollowed-out
+        module is a fork waiting to happen, so it goes entirely."""
+        assert not (REPO_DIR / "nodes" / "sources.py").exists()
+
+        import nodes
+
+        for retired in ("fetch_sources", "fetch_hn", "fetch_rss"):
+            assert not hasattr(nodes, retired)
 
     def test_each_source_owns_its_own_endpoints(self):
         import sources.arxiv as arxiv

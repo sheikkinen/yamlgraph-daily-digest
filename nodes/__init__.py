@@ -1,14 +1,14 @@
-"""Daily Digest node implementations (GitHub-native variant)."""
+"""Daily Digest node implementations (GitHub-native variant).
+
+Collection is deliberately absent: it is an FR-904 tool slot, bound at
+invocation from `sources/`. Everything here is shared by every binding.
+"""
 
 from .content import fetch_article_content
 from .filters import filter_recent
 from .formatting import format_markdown
-from .sources import fetch_hn, fetch_rss, fetch_sources
 
 __all__ = [
-    "fetch_hn",
-    "fetch_rss",
-    "fetch_sources",
     "filter_recent",
     "fetch_article_content",
     "format_markdown",

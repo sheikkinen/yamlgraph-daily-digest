@@ -27,7 +27,14 @@ def _get_db() -> sqlite3.Connection:
 
 
 def filter_recent(state: dict, hours: int = 24) -> dict:
-    """Filter to last N hours, dedupe by URL across runs."""
+    """Filter to last N hours, dedupe by URL across runs.
+
+    The window is a graph variable because cadence belongs to the source,
+    not to the pipeline (FR-904): HN and RSS turn over hourly, while
+    arXiv announces on weekdays only — a fixed 24h cutoff silently
+    empties a preprint digest every weekend.
+    """
+    hours = int(state.get("max_age_hours") or hours)
     cutoff = datetime.now() - timedelta(hours=hours)
     raw_articles = state.get("raw_articles", [])
 
