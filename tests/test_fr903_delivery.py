@@ -50,6 +50,27 @@ class TestDeliveryOrdering:
             "a silent skip would report green while delivering nothing"
         )
 
+    def test_mail_carries_both_text_and_html(self):
+        """Raw markdown in a mail body is unreadable; HTML is the alternative."""
+        args = GRAPH["nodes"]["send_email"]["args"]
+        assert "digest_markdown" in args["text"], "text part must always be present"
+        assert "digest_html" in args["html"]
+
+
+class TestHtmlRendering:
+    def test_model_output_is_escaped(self):
+        """Titles and summaries are model output, never trusted markup."""
+        source = (REPO / "nodes/formatting.py").read_text()
+        assert "from html import escape" in source
+        assert "escape(title)" in source and "escape(summary)" in source
+
+    def test_no_markdown_parser_dependency(self):
+        """HTML is built from the story list, not by re-parsing markdown."""
+        source = (REPO / "nodes/formatting.py").read_text()
+        assert "import markdown" not in source
+        workflow = (REPO / ".github/workflows/digest.yml").read_text()
+        assert "markdown" not in workflow.split("pip install")[1].split("\n")[0]
+
 
 class TestNoOpPredicate:
     def test_formatting_emits_digest_status(self):
