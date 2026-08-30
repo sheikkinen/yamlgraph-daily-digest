@@ -1,0 +1,16 @@
+# Tool manifest (FR-768) — archive the bulletin before delivery (FR-903).
+#
+# Contract: write_bulletin(today, digest_markdown, output_dir="digests")
+#             -> {"path": str}
+#   Writes digests/<today>.md and refreshes the README digest-index block.
+#
+# Raises on an empty bulletin rather than writing one: reaching this node
+# with nothing to archive means the gate failed to route a non-ready
+# digest_status to END, and a zero-byte bulletin would be committed as if
+# it were a real day.
+name: write_bulletin
+description: "Write the day's bulletin to digests/ and refresh the README index"
+runtime:
+  type: python
+  path: write_bulletin.py
+  function: write_bulletin

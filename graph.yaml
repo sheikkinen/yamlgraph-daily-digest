@@ -17,6 +17,10 @@ state:
   analyzed: list
   ranked_stories: list
   digest_markdown: str
+  digest_html: str
+  digest_status: str
+  bulletin_path: any
+  sent: any
 
 # Python tools
 tools:
@@ -43,6 +47,12 @@ tools:
     module: nodes.formatting
     function: format_markdown
     description: "Render markdown bulletin from ranked stories"
+
+  write_bulletin:
+    manifest: tools/write_bulletin.tool.yaml
+
+  send_email:
+    manifest: tools/smtp_email.tool.yaml
 
 nodes:
   fetch_sources:
@@ -88,6 +98,29 @@ nodes:
     tool: format_markdown
     state_key: digest_markdown
 
+  # Pass-through routing point: the gate edges below read digest_status.
+  gate:
+    type: passthrough
+
+  write_bulletin:
+    type: tool_call
+    tool: write_bulletin
+    args:
+      today: "{state.today}"
+      digest_markdown: "{state.digest_markdown}"
+    state_key: bulletin_path
+    on_error: fail
+
+  send_email:
+    type: tool_call
+    tool: send_email
+    args:
+      subject: "Daily Tech Digest — {state.today}"
+      text: "{state.digest_markdown}"
+      html: "{state.digest_html}"
+    state_key: sent
+    on_error: fail
+
 edges:
   - from: START
     to: fetch_sources
@@ -101,3 +134,16 @@ edges:
     to: rank_stories
   - from: rank_stories
     to: format_markdown
+  - from: format_markdown
+    to: gate
+  # Persist before publish: the artifact reaches disk before the network call.
+  - from: gate
+    to: write_bulletin
+    condition: "digest_status == ready"
+  - from: gate
+    to: END
+    condition: "digest_status == no_articles"
+  - from: write_bulletin
+    to: send_email
+  - from: send_email
+    to: END
