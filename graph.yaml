@@ -11,6 +11,7 @@ defaults:
 state:
   topics: list
   today: str
+  max_age_hours: any
   raw_articles: list
   filtered_articles: list
   articles_with_content: list
@@ -24,11 +25,16 @@ state:
 
 # Python tools
 tools:
-  fetch_sources:
-    type: python
-    module: nodes.sources
-    function: fetch_sources
-    description: "Fetch articles from HN, RSS feeds"
+  # The pipeline does not name a source (FR-904). The caller supplies one
+  # at invocation:
+  #   yamlgraph graph run graph.yaml --tool collect=sources/hn_rss.tool.yaml
+  # A second digest over a different subject area is a binding and a
+  # topics list, not a fork of this repository.
+  collect:
+    slot: true
+    contract:
+      runtimes: [python]
+      args: [config]
 
   filter_recent:
     type: python
@@ -55,9 +61,9 @@ tools:
     manifest: tools/smtp_email.tool.yaml
 
 nodes:
-  fetch_sources:
+  collect:
     type: python
-    tool: fetch_sources
+    tool: collect
     state_key: raw_articles
 
   filter_recent:
@@ -123,8 +129,8 @@ nodes:
 
 edges:
   - from: START
-    to: fetch_sources
-  - from: fetch_sources
+    to: collect
+  - from: collect
     to: filter_recent
   - from: filter_recent
     to: fetch_content

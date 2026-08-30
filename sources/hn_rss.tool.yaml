@@ -1,0 +1,15 @@
+# Tool manifest (FR-768) — binds the `collect` slot to Hacker News + RSS.
+#
+# Contract: collect(config) -> {"raw_articles": [{title, url, source, timestamp}]}
+#
+# The HN endpoint and the feed list live in hn_rss.py, not here: the
+# manifest schema forbids extra keys (ToolManifest permits only name,
+# description, runtime), so a feed list cannot be manifest config. Each
+# source owning its own constants is what makes swapping sources a file
+# swap rather than a graph edit.
+name: hn_rss
+description: "Collect articles from Hacker News top stories and the RSS feed list"
+runtime:
+  type: python
+  path: hn_rss.py
+  function: collect
