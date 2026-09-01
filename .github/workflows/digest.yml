@@ -20,7 +20,9 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install "yamlgraph>=0.5.23" pytest pyyaml
+      # Same runtime deps as the digest job: test collection imports
+      # nodes/__init__.py, which pulls bs4/feedparser/httpx transitively.
+      - run: pip install "yamlgraph>=0.5.23" feedparser beautifulsoup4 httpx python-dotenv pytest pyyaml
       - run: python -m pytest tests/ -q
 
   digest:
