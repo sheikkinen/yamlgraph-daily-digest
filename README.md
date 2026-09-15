@@ -9,6 +9,7 @@ state store, and the publication channel.
 ## Latest digests
 
 <!-- digest-index -->
+- [2026-09-15](digests/2026-09-15.md)
 - [2026-09-14](digests/2026-09-14.md)
 - [2026-09-13](digests/2026-09-13.md)
 - [2026-09-12](digests/2026-09-12.md)
@@ -22,7 +23,6 @@ state store, and the publication channel.
 - [2026-09-04](digests/2026-09-04.md)
 - [2026-09-03](digests/2026-09-03.md)
 - [2026-09-02](digests/2026-09-02.md)
-- [2026-09-01](digests/2026-09-01.md)
 <!-- /digest-index -->
 
 ## How it works
