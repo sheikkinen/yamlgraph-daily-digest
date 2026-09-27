@@ -115,15 +115,13 @@ class TestBoundaryIsNotAFrameworkChange:
         import copy
         from pathlib import Path
 
-        import yaml
-        from yamlgraph.schema_loader import build_pydantic_model
+        from yamlgraph.schema_loader import load_schema_from_yaml
 
-        transform_schema = pytest.importorskip(
-            "anthropic.lib._parse._transform"
-        ).transform_schema
-        schema = yaml.safe_load(
-            (Path(__file__).parent.parent / "prompts/rank_stories.yaml").read_text()
-        )["schema"]
-        json_schema = build_pydantic_model(schema).model_json_schema()
-        transform_schema(copy.deepcopy(json_schema))
-        assert json_schema["properties"]["stories"]["items"]["type"] == "object"
+        transform_schema = pytest.importorskip("anthropic").transform_schema
+        model = load_schema_from_yaml(Path(__file__).parent.parent / "prompts/rank_stories.yaml")
+        transformed = transform_schema(copy.deepcopy(model.model_json_schema()))
+        items = transformed["properties"]["stories"]["items"]
+        if "$ref" in items:
+            items = transformed["$defs"][items["$ref"].rsplit("/", 1)[-1]]
+        # FR-1125: the boundary still applies, and the wire schema still names every field.
+        assert set(items["properties"]) == {"title", "url", "summary", "relevance", "reason"}

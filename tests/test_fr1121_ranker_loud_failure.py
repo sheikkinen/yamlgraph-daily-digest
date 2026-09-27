@@ -33,7 +33,6 @@ import pytest
 import yaml
 
 from yamlgraph.models import PipelineError
-from yamlgraph.schema_loader import build_pydantic_model
 
 REPO = Path(__file__).resolve().parents[1]
 PROMPT = REPO / "prompts" / "rank_stories.yaml"
@@ -41,20 +40,29 @@ GRAPH = REPO / "graph.yaml"
 COLLECT = REPO / "sources" / "hn_rss.tool.yaml"
 
 
-def _ranker_schema() -> dict:
-    return yaml.safe_load(PROMPT.read_text(encoding="utf-8"))["schema"]
+RANKER_FIELDS = {"title", "url", "summary", "relevance", "reason"}
+
+
+def _ranker_model() -> type:
+    from yamlgraph.schema_loader import load_schema_from_yaml
+
+    model = load_schema_from_yaml(PROMPT)
+    assert model is not None
+    return model
 
 
 class TestRankerSchema:
-    def test_survives_anthropic_constrained_transform(self):
-        transform_schema = pytest.importorskip(
-            "anthropic.lib._parse._transform"
-        ).transform_schema
-        model = build_pydantic_model(_ranker_schema())
-        json_schema = model.model_json_schema()
-        # RED on list[Any]: items == {} -> "Schema must have a 'type', ..."
-        transform_schema(copy.deepcopy(json_schema))
-        assert json_schema["properties"]["stories"]["items"]["type"] == "object"
+    def test_transformed_items_keep_every_story_field(self):
+        """FR-1125 content witness: `list[dict]` passed the raise-only check and the
+        model answered []; the assertion is now preservation of the five fields."""
+        transform_schema = pytest.importorskip("anthropic").transform_schema
+        transformed = transform_schema(copy.deepcopy(_ranker_model().model_json_schema()))
+        items = transformed["properties"]["stories"]["items"]
+        if "$ref" in items:
+            items = transformed["$defs"][items["$ref"].rsplit("/", 1)[-1]]
+        assert set(items["properties"]) == RANKER_FIELDS
+        assert set(items.get("required", [])) == RANKER_FIELDS
+        assert items.get("additionalProperties") is False
 
     def test_rank_stories_declares_on_error_fail(self):
         config = yaml.safe_load(GRAPH.read_text(encoding="utf-8"))
