@@ -255,6 +255,23 @@ class TestLintAndCompile:
         assert {"_map_analyze_all_sub", "_map_analyze_all_account", "_map_analyze_all_join"} <= nodes
 
 
+# ---------------------------------------------------------------- AC-09 (release floor)
+
+
+class TestReleaseFloor:
+    def test_workflow_pins_the_first_release_carrying_the_map_contract(self):
+        workflow = yaml.safe_load((REPO / ".github/workflows/digest.yml").read_text())
+        installs = [
+            step["run"]
+            for job in workflow["jobs"].values()
+            for step in job["steps"]
+            if isinstance(step.get("run"), str) and "pip install" in step["run"]
+        ]
+        assert len(installs) == 2
+        for line in installs:
+            assert '"yamlgraph>=0.6.1"' in line, line
+
+
 # ---------------------------------------------------------------- AC-06 (typed runner report)
 
 
