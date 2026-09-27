@@ -98,6 +98,7 @@ nodes:
       analyzed: "{state.analyzed}"
       topics: "{state.topics}"
     state_key: ranked_stories
+    on_error: fail
 
   format_markdown:
     type: python
