@@ -88,6 +88,30 @@ def main():
     print(f"✓ Found {len(result.get('raw_articles', []))} articles")
     print(f"✓ After filtering: {len(result.get('filtered_articles', []))}")
 
+    # FR-1122: the map verdict and failures are typed records (FR-1073);
+    # validate at the boundary and read attributes. A missing verdict is
+    # a loud failure, never a "?". Composed after the FR-1121 guard above:
+    # an untolerated failure raises at the join and never reaches here.
+    from yamlgraph.models.map_results import MapFailure, MapVerdict
+
+    verdict_raw = (result.get("_map_verdict") or {}).get("analyze_all")
+    if verdict_raw is None:
+        raise RuntimeError("analyze_all map verdict is missing")
+    verdict = MapVerdict.model_validate(verdict_raw)
+    failures = [
+        MapFailure.model_validate(item)
+        for item in (result.get("analysis_failures") or [])
+    ]
+    print(
+        f"✓ Analysed {verdict.succeeded} of {verdict.dispatched}"
+        f" - {len(failures)} skipped"
+    )
+    for failure in failures:
+        print(
+            f"  · skipped #{failure.index}: {failure.error_type}:"
+            f" {failure.message[:120]}"
+        )
+
     if result.get("digest_status") == "no_articles":
         print("digest: no-op — no new stories, nothing to commit")
         return

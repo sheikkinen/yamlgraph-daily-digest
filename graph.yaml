@@ -8,6 +8,9 @@ defaults:
   prompts_relative: true
   prompts_dir: prompts
 
+config:
+  max_concurrency: 8
+
 state:
   topics: list
   today: str
@@ -80,16 +83,21 @@ nodes:
     type: map
     over: "{state.articles_with_content}"
     as: article
+    max_items: 100
+    on_overflow: truncate
+    timeout: 120
+    failures: analysis_failures
     node:
       type: llm
       prompt: analyze_article
+      state_key: analysis
+      on_error: skip
       variables:
         title: "{state.article.title}"
         url: "{state.article.url}"
         content: "{state.article.content}"
         topics: "{state.topics}"
     collect: analyzed
-    on_error: skip
 
   rank_stories:
     type: llm
@@ -108,6 +116,8 @@ nodes:
   # Pass-through routing point: the gate edges below read digest_status.
   gate:
     type: passthrough
+    output:
+      digest_status: "{state.digest_status}"
 
   write_bulletin:
     type: tool_call
