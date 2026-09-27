@@ -22,7 +22,7 @@ jobs:
           python-version: "3.12"
       # Same runtime deps as the digest job: test collection imports
       # nodes/__init__.py, which pulls bs4/feedparser/httpx transitively.
-      - run: pip install "yamlgraph>=0.5.23" feedparser beautifulsoup4 httpx python-dotenv pytest pyyaml
+      - run: pip install "yamlgraph>=0.6.1" feedparser beautifulsoup4 httpx python-dotenv pytest pyyaml
       - run: python -m pytest tests/ -q
 
   digest:
@@ -34,10 +34,11 @@ jobs:
         with:
           python-version: "3.12"
       # yamlgraph from PyPI + the nodes' direct deps only (FR-819 R-2).
-      # >=0.5.23 is a hard floor, not a preference: tool slots (FR-892)
-      # are absent from every earlier wheel, so the graph's `collect`
-      # slot would fail to bind before any node ran.
-      - run: pip install "yamlgraph>=0.5.23" feedparser beautifulsoup4 httpx python-dotenv
+      # >=0.6.1 is a hard floor, not a preference (FR-1122): it is the
+      # first release carrying the FR-1073 map result contract (typed
+      # MapVerdict/MapFailure records the runner consumes) and the FR-939
+      # overflow policy the graph declares. Earlier wheels lack both.
+      - run: pip install "yamlgraph>=0.6.1" feedparser beautifulsoup4 httpx python-dotenv
       - run: python run_digest.py --db digest.db --output digests
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

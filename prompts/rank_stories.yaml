@@ -10,9 +10,9 @@ user: |
 
   Articles:
   {% for item in analyzed %}
-  - {{ item._map_analyze_all_sub.title }} (relevance: {{ item._map_analyze_all_sub.relevance_score }})
-    Summary: {{ item._map_analyze_all_sub.summary }}
-    URL: {{ item._map_analyze_all_sub.url }}
+  - {{ item.title }} (relevance: {{ item.relevance_score }})
+    Summary: {{ item.summary }}
+    URL: {{ item.url }}
   {% endfor %}
 
   Return 5-8 stories as a JSON array. Each story should have:
