@@ -104,11 +104,26 @@ class TestPartialResponses:
 
 
 class TestBoundaryIsNotAFrameworkChange:
-    def test_prompt_schema_is_untouched(self):
-        """The guard is correct regardless of what the schema becomes."""
+    def test_prompt_schema_is_constrainable_and_boundary_still_applies(self):
+        """FR-1121 retyped `stories` to `list[dict]`; the FR-905 boundary is unchanged.
+
+        Replaces the FR-905 pin on `list[Any]` (which said changing the schema
+        is a separate FR — FR-1121 is that FR). The schema now types the
+        array's items, so the Anthropic SDK's constrained-decoding transform
+        accepts it; the element contract still lives in `RankedStory`.
+        """
+        import copy
         from pathlib import Path
 
-        schema = (Path(__file__).parent.parent / "prompts/rank_stories.yaml").read_text()
-        assert "list[Any]" in schema, (
-            "FR-905 guards the boundary; changing the schema is a separate FR"
-        )
+        import yaml
+        from yamlgraph.schema_loader import build_pydantic_model
+
+        transform_schema = pytest.importorskip(
+            "anthropic.lib._parse._transform"
+        ).transform_schema
+        schema = yaml.safe_load(
+            (Path(__file__).parent.parent / "prompts/rank_stories.yaml").read_text()
+        )["schema"]
+        json_schema = build_pydantic_model(schema).model_json_schema()
+        transform_schema(copy.deepcopy(json_schema))
+        assert json_schema["properties"]["stories"]["items"]["type"] == "object"

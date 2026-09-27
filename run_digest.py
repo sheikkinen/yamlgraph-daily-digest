@@ -72,6 +72,19 @@ def main():
         }
     )
 
+    # FR-1121: a recorded error never becomes a quiet day. A node without
+    # on_error falls through to the framework's default handler, which
+    # records a PipelineError and continues; nothing downstream may treat
+    # the resulting absence as "no articles". Tolerated map skips (FR-1073)
+    # never enter `errors`, so a skipped article does not trip this.
+    errors = result.get("errors") or []
+    if errors:
+        for err in errors:
+            node = getattr(err, "node", None) or "?"
+            message = getattr(err, "message", None) or str(err)
+            print(f"✗ {node}: {message}", file=sys.stderr)
+        sys.exit(2)
+
     print(f"✓ Found {len(result.get('raw_articles', []))} articles")
     print(f"✓ After filtering: {len(result.get('filtered_articles', []))}")
 
